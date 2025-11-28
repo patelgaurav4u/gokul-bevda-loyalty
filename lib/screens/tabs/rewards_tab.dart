@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
+import '../../services/api_service.dart';
 
 class RewardsTabContent extends StatefulWidget {
   const RewardsTabContent({super.key});
@@ -12,11 +14,15 @@ class RewardsTabContent extends StatefulWidget {
 }
 
 class _RewardsTabContentState extends State<RewardsTabContent> {
+  final ApiService _apiService = ApiService.create(
+    baseUrl: 'https://api.example.com',
+  );
   final TextEditingController _amountController = TextEditingController(
     text: '75',
   );
   String? _selectedAmount;
   String? _selectedStore;
+  bool _isGeneratingCode = false;
   final List<String> _amountOptions = ['10', '20', '50', '75', '100', '125'];
   final List<String> _storeOptions = [
     'Downtown',
@@ -44,6 +50,328 @@ class _RewardsTabContentState extends State<RewardsTabContent> {
     return number.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
+    );
+  }
+
+  Future<void> _generateRedemptionCode() async {
+    if (_selectedAmount == null || _selectedStore == null) {
+      _showErrorDialog('Please select an amount and store');
+      return;
+    }
+
+    setState(() {
+      _isGeneratingCode = true;
+    });
+
+    try {
+      final response = await _apiService.generateRedemptionCode(
+        amount: _selectedAmount!,
+        store: _selectedStore!,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isGeneratingCode = false;
+        });
+
+        if (response['success'] == true) {
+          _showSuccessDialog(
+            code: response['code'] as String,
+            amount: response['amount'] as String,
+            store: response['store'] as String,
+          );
+        } else {
+          _showErrorDialog(
+            response['message'] as String? ??
+                'Failed to generate redemption code',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isGeneratingCode = false;
+        });
+
+        String errorMessage = 'An error occurred';
+        if (e.toString().contains('SocketException') ||
+            e.toString().contains('Network') ||
+            e.toString().contains('connection') ||
+            e.toString().contains('timeout')) {
+          errorMessage =
+              'Network error. Please check your internet connection and try again.';
+        } else if (e.toString().contains('DioException') ||
+            e.toString().contains('DioError')) {
+          errorMessage = 'Network request failed. Please try again.';
+        } else {
+          errorMessage = e.toString();
+        }
+
+        _showErrorDialog(errorMessage);
+      }
+    }
+  }
+
+  void _showSuccessDialog({
+    required String code,
+    required String amount,
+    required String store,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: Responsive.padding(context, 16),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.white,
+              child: Container(
+                padding: EdgeInsets.all(Responsive.padding(context, 24)),
+                constraints: BoxConstraints(
+                  maxWidth: Responsive.dialogWidth(context),
+                  maxHeight: Responsive.dialogMaxHeight(context),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Success icon
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: AppTheme.darkGreen.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: AppTheme.darkGreen,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Success title
+                    const Text(
+                      'Redemption Code Generated!',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        fontFamily: 'Roboto Flex',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    // Code display
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.lightPink,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.primary, width: 2),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Your Redemption Code',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.unselected_tab_color,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            code,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primary,
+                              fontFamily: 'Roboto Flex',
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Details
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.lightGray,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow('Amount:', '\$$amount'),
+                          const SizedBox(height: 8),
+                          _buildDetailRow('Store:', store),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Close button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Close',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Roboto Flex',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.unselected_tab_color,
+            fontFamily: 'Roboto Flex',
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+            fontFamily: 'Roboto Flex',
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: Responsive.padding(context, 16),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.white,
+              child: Container(
+                padding: EdgeInsets.all(Responsive.padding(context, 24)),
+                constraints: BoxConstraints(
+                  maxWidth: Responsive.dialogWidth(context),
+                  maxHeight: Responsive.dialogMaxHeight(context),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Error icon
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Error title
+                    const Text(
+                      'Error',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        fontFamily: 'Roboto Flex',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    // Error message
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.unselected_tab_color,
+                        fontFamily: 'Roboto Flex',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    // Close button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Close',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Roboto Flex',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -233,7 +561,7 @@ class _RewardsTabContentState extends State<RewardsTabContent> {
                       ),
                     ),
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(Responsive.padding(context, 16)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -432,9 +760,9 @@ class _RewardsTabContentState extends State<RewardsTabContent> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () {
-                                // Generate redemption code
-                              },
+                              onPressed: _isGeneratingCode
+                                  ? null
+                                  : _generateRedemptionCode,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primary,
                                 foregroundColor: Colors.white,
@@ -444,15 +772,29 @@ class _RewardsTabContentState extends State<RewardsTabContent> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                disabledBackgroundColor: AppTheme.primary
+                                    .withOpacity(0.6),
                               ),
-                              child: const Text(
-                                'Generate Redemption Code',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Roboto Flex',
-                                ),
-                              ),
+                              child: _isGeneratingCode
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Generate Redemption Code',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Roboto Flex',
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 16),

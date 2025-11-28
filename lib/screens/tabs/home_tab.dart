@@ -8,7 +8,9 @@ import '../../models/recent_activity.dart';
 import '../../services/api_service.dart';
 
 class HomeTabContent extends StatefulWidget {
-  const HomeTabContent({super.key});
+  final Function(int)? onNavigateToTab;
+
+  const HomeTabContent({super.key, this.onNavigateToTab});
 
   @override
   State<HomeTabContent> createState() => _HomeTabContentState();
@@ -364,7 +366,10 @@ class _HomeTabContentState extends State<HomeTabContent> {
                       ),
                       child: GestureDetector(
                         onTap: () {
-                          // Handle view all offers
+                          // Navigate to Special Offers tab (index 2)
+                          if (widget.onNavigateToTab != null) {
+                            widget.onNavigateToTab!(2);
+                          }
                         },
                         child: const Text(
                           'View All Offers',
@@ -544,7 +549,10 @@ class _HomeTabContentState extends State<HomeTabContent> {
                       ),
                       child: GestureDetector(
                         onTap: () {
-                          // Handle view all activity
+                          // Navigate to Purchase History tab (index 3)
+                          if (widget.onNavigateToTab != null) {
+                            widget.onNavigateToTab!(3);
+                          }
                         },
                         child: const Text(
                           'View All Activity',

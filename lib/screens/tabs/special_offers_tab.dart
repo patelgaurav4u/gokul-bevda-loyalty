@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import '../../models/special_offer.dart';
 import '../../services/api_service.dart';
 
@@ -21,8 +22,18 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
   );
 
   late TabController _tabController;
-  bool _isLoading = true;
-  String? _error;
+
+  // Loading states for each tab
+  bool _isLoadingAll = true;
+  bool _isLoadingDiscounts = true;
+  bool _isLoadingBuy1Get1 = true;
+
+  // Error states for each tab
+  String? _errorAll;
+  String? _errorDiscounts;
+  String? _errorBuy1Get1;
+
+  // Data for each tab
   List<SpecialOffer> _allOffers = [];
   List<SpecialOffer> _discounts = [];
   List<SpecialOffer> _buy1get1 = [];
@@ -35,7 +46,10 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
     _tabController.addListener(() {
       setState(() {});
     });
-    _loadSpecialOffers();
+    // Load data for all tabs independently
+    _loadAllOffers();
+    _loadDiscounts();
+    _loadBuy1Get1();
     // NOTE: Changes to initState() require HOT RESTART (R), not hot reload (r)
     // Hot reload won't work for modifications in this method
   }
@@ -46,49 +60,101 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
     super.dispose();
   }
 
-  Future<void> _loadSpecialOffers() async {
+  // Load data for "All Offers" tab
+  Future<void> _loadAllOffers() async {
     setState(() {
-      _isLoading = true;
-      _error = null;
+      _isLoadingAll = true;
+      _errorAll = null;
     });
 
     try {
       final allOffers = await _apiService.getSpecialOffers(type: 'all');
-      final discounts = await _apiService.getSpecialOffers(type: 'discounts');
-      final buy1get1 = await _apiService.getSpecialOffers(type: 'buy1get1');
 
       if (mounted) {
         setState(() {
           _allOffers = allOffers;
-          _discounts = discounts;
-          _buy1get1 = buy1get1;
-          _isLoading = false;
+          _isLoadingAll = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = 'An error occurred';
-
-        // Check for network errors
-        if (e.toString().contains('SocketException') ||
-            e.toString().contains('Network') ||
-            e.toString().contains('connection') ||
-            e.toString().contains('timeout') ||
-            e.toString().contains('Failed host lookup')) {
-          errorMessage =
-              'Network error. Please check your internet connection and try again.';
-        } else if (e.toString().contains('DioException') ||
-            e.toString().contains('DioError')) {
-          errorMessage = 'Network request failed. Please try again.';
-        } else {
-          errorMessage = e.toString();
-        }
-
+        String errorMessage = _getErrorMessage(e);
         setState(() {
-          _error = errorMessage;
-          _isLoading = false;
+          _errorAll = errorMessage;
+          _isLoadingAll = false;
         });
       }
+    }
+  }
+
+  // Load data for "Discounts" tab
+  Future<void> _loadDiscounts() async {
+    setState(() {
+      _isLoadingDiscounts = true;
+      _errorDiscounts = null;
+    });
+
+    try {
+      final discounts = await _apiService.getSpecialOffers(type: 'discounts');
+
+      if (mounted) {
+        setState(() {
+          _discounts = discounts;
+          _isLoadingDiscounts = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = _getErrorMessage(e);
+        setState(() {
+          _errorDiscounts = errorMessage;
+          _isLoadingDiscounts = false;
+        });
+      }
+    }
+  }
+
+  // Load data for "Buy 1 Get 1" tab
+  Future<void> _loadBuy1Get1() async {
+    setState(() {
+      _isLoadingBuy1Get1 = true;
+      _errorBuy1Get1 = null;
+    });
+
+    try {
+      final buy1get1 = await _apiService.getSpecialOffers(type: 'buy1get1');
+
+      if (mounted) {
+        setState(() {
+          _buy1get1 = buy1get1;
+          _isLoadingBuy1Get1 = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = _getErrorMessage(e);
+        setState(() {
+          _errorBuy1Get1 = errorMessage;
+          _isLoadingBuy1Get1 = false;
+        });
+      }
+    }
+  }
+
+  // Helper method to extract error message
+  String _getErrorMessage(dynamic e) {
+    // Check for network errors
+    if (e.toString().contains('SocketException') ||
+        e.toString().contains('Network') ||
+        e.toString().contains('connection') ||
+        e.toString().contains('timeout') ||
+        e.toString().contains('Failed host lookup')) {
+      return 'Network error. Please check your internet connection and try again.';
+    } else if (e.toString().contains('DioException') ||
+        e.toString().contains('DioError')) {
+      return 'Network request failed. Please try again.';
+    } else {
+      return e.toString();
     }
   }
 
@@ -108,69 +174,6 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
-        ),
-      );
-    }
-
-    if (_error != null) {
-      final isNetworkError =
-          _error!.toLowerCase().contains('network') ||
-          _error!.toLowerCase().contains('connection') ||
-          _error!.toLowerCase().contains('timeout');
-
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isNetworkError ? Icons.wifi_off : Icons.error_outline,
-                size: 64,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                isNetworkError ? 'Network Error' : 'Error',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                  fontFamily: 'Roboto Flex',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontFamily: 'Roboto Flex',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _loadSpecialOffers,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Column(
       children: [
         // Header with red background
@@ -340,14 +343,102 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildOffersList(_allOffers),
-              _buildOffersList(_discounts),
-              _buildOffersList(_buy1get1),
+              _buildTabContent(
+                isLoading: _isLoadingAll,
+                error: _errorAll,
+                offers: _allOffers,
+                onRetry: _loadAllOffers,
+              ),
+              _buildTabContent(
+                isLoading: _isLoadingDiscounts,
+                error: _errorDiscounts,
+                offers: _discounts,
+                onRetry: _loadDiscounts,
+              ),
+              _buildTabContent(
+                isLoading: _isLoadingBuy1Get1,
+                error: _errorBuy1Get1,
+                offers: _buy1get1,
+                onRetry: _loadBuy1Get1,
+              ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  // Build tab content with loading/error handling
+  Widget _buildTabContent({
+    required bool isLoading,
+    required String? error,
+    required List<SpecialOffer> offers,
+    required VoidCallback onRetry,
+  }) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+        ),
+      );
+    }
+
+    if (error != null) {
+      final isNetworkError =
+          error.toLowerCase().contains('network') ||
+          error.toLowerCase().contains('connection') ||
+          error.toLowerCase().contains('timeout');
+
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isNetworkError ? Icons.wifi_off : Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isNetworkError ? 'Network Error' : 'Error',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                  fontFamily: 'Roboto Flex',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  error,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontFamily: 'Roboto Flex',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return _buildOffersList(offers);
   }
 
   Widget _buildOffersList(List<SpecialOffer> offers) {
@@ -583,13 +674,18 @@ class _OfferDialogState extends State<_OfferDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: Responsive.padding(context, 16),
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Material(
           color: Colors.white,
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: BoxConstraints(
+              maxWidth: Responsive.dialogWidth(context),
+              maxHeight: Responsive.dialogMaxHeight(context),
+            ),
             color: Colors.white,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -630,145 +726,150 @@ class _OfferDialogState extends State<_OfferDialog> {
                 Flexible(
                   child: Container(
                     color: Colors.white,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Main offer title - centered
-                          Center(
-                            child: Text(
-                              widget.offer.title,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 22,
+                    padding: EdgeInsets.all(Responsive.padding(context, 16)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Main offer title - centered (fixed)
+                        Center(
+                          child: Text(
+                            widget.offer.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Subtitle (fixed)
+                        Center(
+                          child: Text(
+                            widget.offer.description,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.unselected_tab_color,
+                              fontFamily: 'Roboto Flex',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Special Offer Details Section (fixed)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.semiDarkPink,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'SPECIAL OFFER DETAILS',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.primary,
+                                  fontFamily: 'Roboto Flex',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                widget.offer.description,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
+                                  color: AppTheme.unselected_tab_color,
+                                  fontFamily: 'Roboto Flex',
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Available at these stores section (fixed)
+                        Row(
+                          children: [
+                            SvgPicture.asset(
+                              'assets/images/store.svg',
+                              width: 22,
+                              height: 22,
+                            ),
+                            const SizedBox(width: 16),
+                            const Text(
+                              'Available at these stores',
+                              style: TextStyle(
+                                fontSize: 18,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black,
                                 fontFamily: 'Roboto Flex',
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Subtitle
-                          Center(
-                            child: Text(
-                              widget.offer.description,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.unselected_tab_color,
-                                fontFamily: 'Roboto Flex',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          // Special Offer Details Section
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.semiDarkPink,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'SPECIAL OFFER DETAILS',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.primary,
-                                    fontFamily: 'Roboto Flex',
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Store list - scrollable only
+                        Flexible(
+                          child: widget.offer.stores.isEmpty
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Text(
+                                      'No stores available for this offer',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                        fontFamily: 'Roboto Flex',
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  widget.offer.description,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 10,
-                                    color: AppTheme.unselected_tab_color,
-                                    fontFamily: 'Roboto Flex',
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          // Available at these stores section
-                          Row(
-                            children: [
-                              SvgPicture.asset(
-                                'assets/images/store.svg',
-                                width: 22,
-                                height: 22,
-                              ),
-                              const SizedBox(width: 16),
-                              const Text(
-                                'Available at these stores',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black,
-                                  fontFamily: 'Roboto Flex',
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Store list with icon - dynamic from API
-                          if (widget.offer.stores.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(
-                                child: Text(
-                                  'No stores available for this offer',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                    fontFamily: 'Roboto Flex',
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            ...widget.offer.stores.asMap().entries.expand((
-                              entry,
-                            ) {
-                              final isLast =
-                                  entry.key == widget.offer.stores.length - 1;
-                              return [
-                                _buildStoreItem(
-                                  entry.key,
-                                  entry.value.name,
-                                  entry.value.address,
-                                  entry.value.hours,
-                                  entry.value.stock,
-                                  selectedStoreIndex == entry.key,
-                                  entry.key == 0,
-                                  isLast,
-                                  widget.offer.stores.length,
-                                  () {
-                                    setState(() {
-                                      selectedStoreIndex = entry.key;
-                                    });
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: widget.offer.stores.length,
+                                  itemBuilder: (context, index) {
+                                    final store = widget.offer.stores[index];
+                                    final isLast =
+                                        index == widget.offer.stores.length - 1;
+                                    return Column(
+                                      children: [
+                                        _buildStoreItem(
+                                          index,
+                                          store.name,
+                                          store.address,
+                                          store.hours,
+                                          store.stock,
+                                          selectedStoreIndex == index,
+                                          index == 0,
+                                          isLast,
+                                          widget.offer.stores.length,
+                                          () {
+                                            setState(() {
+                                              selectedStoreIndex = index;
+                                            });
+                                          },
+                                        ),
+                                        if (!isLast)
+                                          Divider(
+                                            color: const Color(0xFFCBCBCB),
+                                            thickness: 1,
+                                            height: 1,
+                                          ),
+                                      ],
+                                    );
                                   },
                                 ),
-                                if (!isLast)
-                                  Divider(
-                                    color: const Color(0xFFCBCBCB),
-                                    thickness: 1,
-                                    height: 1,
-                                  ),
-                              ];
-                            }).toList(),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

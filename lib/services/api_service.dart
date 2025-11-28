@@ -1,6 +1,7 @@
 // lib/services/api_service.dart
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/points_data.dart';
 import '../models/special_offer.dart';
 import '../models/recent_activity.dart';
@@ -37,6 +38,30 @@ class ApiService {
         },
         onError: (err, handler) {
           // print('✖ ${err.message}');
+          handler.next(err);
+        },
+      ),
+    );
+
+    // Authentication interceptor - automatically adds token to requests
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          // Load token from SharedPreferences
+          final sp = await SharedPreferences.getInstance();
+          final token = sp.getString('auth_token');
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+        onError: (err, handler) {
+          // Handle 401 Unauthorized - token may be expired
+          if (err.response?.statusCode == 401) {
+            // Token expired or invalid
+            // You may want to clear token and navigate to login
+            // This can be handled by the calling code or via a callback
+          }
           handler.next(err);
         },
       ),
@@ -314,5 +339,55 @@ class ApiService {
       redeemedTransactionsCount: redeemedTransactions.length,
       allTransactions: transactions,
     );
+  }
+
+  /// Generate redemption code
+  /// Simulates API call with delay
+  Future<Map<String, dynamic>> generateRedemptionCode({
+    required String amount,
+    required String store,
+  }) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Simulate API call
+    try {
+      // In a real app, this would be:
+      // final response = await dio.post(
+      //   ApiEndpoints.generateRedemptionCode,
+      //   data: {
+      //     'amount': amount,
+      //     'store': store,
+      //   },
+      // );
+      // return response.data;
+
+      // Mock success response
+      return {
+        'success': true,
+        'code': 'RED${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+        'message': 'Redemption code generated successfully',
+        'amount': amount,
+        'store': store,
+        'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      };
+    } catch (e) {
+      // Simulate error (uncomment to test error handling)
+      // throw DioException(
+      //   requestOptions: RequestOptions(path: ApiEndpoints.generateRedemptionCode),
+      //   error: 'Failed to generate redemption code',
+      //   type: DioExceptionType.connectionError,
+      // );
+
+      // For now, return success (you can uncomment above to test error)
+      return {
+        'success': true,
+        'code': 'RED${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+        'message': 'Redemption code generated successfully',
+        'amount': amount,
+        'store': store,
+        'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      };
+    }
   }
 }

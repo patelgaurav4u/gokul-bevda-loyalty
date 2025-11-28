@@ -15,4 +15,7 @@ class ApiEndpoints {
 
   // Barcode/QR code endpoints
   static const String getUserQrData = '/user/qr-data';
+
+  // Rewards/Redemption endpoints
+  static const String generateRedemptionCode = '/rewards/generate-code';
 }

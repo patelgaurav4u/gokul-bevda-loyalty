@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../utils/theme.dart';
+import '../../utils/responsive.dart';
 import '../../models/purchase_history.dart';
 import '../../services/api_service.dart';
 
@@ -258,31 +259,13 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                       ),
                     ),
                     // Filter Icon
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          print('Filter button tapped');
-                          _showFilterPopup(context);
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: SvgPicture.asset(
-                              'assets/images/filter.svg',
-                              width: 20,
-                              height: 20,
-                            ),
-                          ),
-                        ),
+                    IconButton(
+                      icon: SvgPicture.asset(
+                        'assets/images/filter_copy.svg',
+                        width: 17,
+                        height: 17,
                       ),
+                      onPressed: () => {_showFilterPopup(context)},
                     ),
                   ],
                 ),
@@ -739,6 +722,9 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
             return Dialog(
               backgroundColor: Colors.transparent,
               elevation: 0,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: Responsive.padding(context, 16),
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -747,12 +733,12 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                 child: Material(
                   color: Colors.white,
                   child: Container(
-                    constraints: const BoxConstraints(
-                      maxWidth: 400,
-                      maxHeight: 600,
+                    constraints: BoxConstraints(
+                      maxWidth: Responsive.dialogWidth(context),
+                      maxHeight: Responsive.dialogMaxHeight(context),
                     ),
                     color: Colors.white,
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(Responsive.padding(context, 20)),
                     child: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -871,7 +857,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               SizedBox(
-                                width: 80,
+                                width: Responsive.widthPercent(context, 25),
                                 child: OutlinedButton(
                                   onPressed: () {
                                     setState(() {
@@ -904,9 +890,9 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: Responsive.spacing(context, 12)),
                               SizedBox(
-                                width: 80,
+                                width: Responsive.widthPercent(context, 25),
                                 child: ElevatedButton(
                                   onPressed: () {
                                     // Apply filters here
