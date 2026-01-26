@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../config/api_config.dart';
 import '../../utils/theme.dart';
-import '../../utils/responsive.dart';
-import '../../models/special_offer.dart';
 import '../../services/api_service.dart';
+import '../../models/special_offer.dart';
+import '../../widgets/offer_dialog.dart';
 
 class SpecialOffersTabContent extends StatefulWidget {
   const SpecialOffersTabContent({super.key});
@@ -38,6 +38,8 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
   List<SpecialOffer> _buy1get1 = [];
   String _searchQuery = '';
 
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -49,13 +51,12 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
     _loadAllOffers();
     _loadDiscounts();
     _loadBuy1Get1();
-    // NOTE: Changes to initState() require HOT RESTART (R), not hot reload (r)
-    // Hot reload won't work for modifications in this method
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -182,12 +183,6 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
           color: AppTheme.primary,
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () {
-                  // Navigate back if needed
-                },
-              ),
               const Expanded(
                 child: Text(
                   'Special Offers',
@@ -200,7 +195,6 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(width: 48), // Balance space for back button
             ],
           ),
         ),
@@ -289,7 +283,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                   tabs: const [
                     Tab(text: 'All Offers'),
                     Tab(text: 'Discounts'),
-                    Tab(text: 'Buy 1 Get 1'),
+                    Tab(text: 'BOGO'),
                   ],
                 ),
               ),
@@ -306,6 +300,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
               borderRadius: BorderRadius.circular(24),
             ),
             child: TextField(
+              controller: _searchController,
               onChanged: (value) {
                 setState(() {
                   _searchQuery = value;
@@ -327,6 +322,23 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                     height: 15,
                   ),
                 ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppTheme.unselected_tab_color,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                          // Hide keyboard
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -452,6 +464,9 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                 ) ||
                 offer.category.toLowerCase().contains(
                   _searchQuery.toLowerCase(),
+                ) ||
+                offer.categoryTitle.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
                 );
           }).toList();
 
@@ -488,7 +503,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
       behavior: HitTestBehavior.opaque,
       onTap: () {
         print('Offer card tapped: ${offer.title}');
-        _showOfferPopup(context, offer);
+        _showOfferPopup(context, offer.id, offer.description);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -514,7 +529,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
             const SizedBox(height: 8),
 
             // Tag - Right aligned
-            const SizedBox(height: 8),
+            //const SizedBox(height: 8),
             // Description
             Text(
               offer.description,
@@ -535,7 +550,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Category:',
+                      offer.categoryTitle,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.black,
@@ -570,7 +585,7 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      offer.availability,
+                      "Selected Stores",
                       style: TextStyle(
                         fontSize: 12,
                         color: AppTheme.primary,
@@ -584,57 +599,60 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
             ),
             const SizedBox(height: 12),
             // Light red separator
-            Divider(color: AppTheme.lightRed, thickness: 1, height: 1),
-            const SizedBox(height: 10),
+            if (offer.expires.isNotEmpty)
+              Divider(color: AppTheme.lightRed, thickness: 1, height: 1),
+            if (offer.expires.isNotEmpty) const SizedBox(height: 10),
             // Expires and Tag row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Expires
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: SvgPicture.asset(
-                        'assets/images/time.svg',
-                        width: 18,
-                        height: 18,
+                if (offer.expires.isNotEmpty)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: SvgPicture.asset(
+                          'assets/images/time.svg',
+                          width: 18,
+                          height: 18,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Expires: ${offer.expires}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.unselected_tab_color,
-                        fontFamily: 'Roboto Flex',
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(width: 8),
+                      Text(
+                        'Expires: ${offer.expires}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.unselected_tab_color,
+                          fontFamily: 'Roboto Flex',
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 // Tag - Right aligned
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    offer.tag,
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                      fontFamily: 'Roboto Flex',
+                if (offer.expires.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      offer.tag,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                        fontFamily: 'Roboto Flex',
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -643,401 +661,15 @@ class _SpecialOffersTabContentState extends State<SpecialOffersTabContent>
     );
   }
 
-  void _showOfferPopup(BuildContext context, SpecialOffer offer) {
-    print('Showing popup for offer: ${offer.title}');
+  void _showOfferPopup(BuildContext context, String saleId, String note) {
+    print('Showing popup for saleId: $saleId');
     showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black54,
       builder: (BuildContext dialogContext) {
-        return _OfferDialog(offer: offer);
+        return OfferDialog(saleId: saleId, note: note);
       },
-    );
-  }
-}
-
-class _OfferDialog extends StatefulWidget {
-  final SpecialOffer offer;
-
-  const _OfferDialog({required this.offer});
-
-  @override
-  State<_OfferDialog> createState() => _OfferDialogState();
-}
-
-class _OfferDialogState extends State<_OfferDialog> {
-  int? selectedStoreIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: Responsive.padding(context, 16),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Material(
-          color: Colors.white,
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: Responsive.dialogWidth(context),
-              maxHeight: Responsive.dialogMaxHeight(context),
-            ),
-            color: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // White header bar with close button
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(6),
-                      topRight: Radius.circular(6),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // Close icon aligned to right
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(5.0),
-                          child: SvgPicture.asset(
-                            'assets/images/close.svg',
-                            width: 15,
-                            height: 15,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // White content area
-                Flexible(
-                  child: Container(
-                    color: Colors.white,
-                    padding: EdgeInsets.all(Responsive.padding(context, 16)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Main offer title - centered (fixed)
-                        Center(
-                          child: Text(
-                            widget.offer.title,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                              fontFamily: 'Roboto Flex',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Subtitle (fixed)
-                        Center(
-                          child: Text(
-                            widget.offer.description,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.unselected_tab_color,
-                              fontFamily: 'Roboto Flex',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // Special Offer Details Section (fixed)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.semiDarkPink,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'SPECIAL OFFER DETAILS',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.primary,
-                                  fontFamily: 'Roboto Flex',
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                widget.offer.description,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10,
-                                  color: AppTheme.unselected_tab_color,
-                                  fontFamily: 'Roboto Flex',
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // Available at these stores section (fixed)
-                        Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/images/store.svg',
-                              width: 22,
-                              height: 22,
-                            ),
-                            const SizedBox(width: 16),
-                            const Text(
-                              'Available at these stores',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
-                                fontFamily: 'Roboto Flex',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // Store list - scrollable only
-                        Flexible(
-                          child: widget.offer.stores.isEmpty
-                              ? const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(16.0),
-                                    child: Text(
-                                      'No stores available for this offer',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey,
-                                        fontFamily: 'Roboto Flex',
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: widget.offer.stores.length,
-                                  itemBuilder: (context, index) {
-                                    final store = widget.offer.stores[index];
-                                    final isLast =
-                                        index == widget.offer.stores.length - 1;
-                                    return Column(
-                                      children: [
-                                        _buildStoreItem(
-                                          index,
-                                          store.name,
-                                          store.address,
-                                          store.hours,
-                                          store.stock,
-                                          selectedStoreIndex == index,
-                                          index == 0,
-                                          isLast,
-                                          widget.offer.stores.length,
-                                          () {
-                                            setState(() {
-                                              selectedStoreIndex = index;
-                                            });
-                                          },
-                                        ),
-                                        if (!isLast)
-                                          Divider(
-                                            color: const Color(0xFFCBCBCB),
-                                            thickness: 1,
-                                            height: 1,
-                                          ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoreItem(
-    int index,
-    String storeName,
-    String address,
-    String hours,
-    String stock,
-    bool isSelected,
-    bool isFirst,
-    bool isLast,
-    int totalCount,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.lightPink : AppTheme.lightGray,
-          border: isSelected
-              ? const Border(
-                  left: BorderSide(color: AppTheme.primary, width: 2),
-                )
-              : const Border(
-                  left: BorderSide(color: Colors.transparent, width: 2),
-                ),
-          borderRadius: BorderRadius.only(
-            topLeft: isFirst ? const Radius.circular(8) : Radius.zero,
-            topRight: isFirst ? const Radius.circular(8) : Radius.zero,
-            bottomLeft: isLast ? const Radius.circular(8) : Radius.zero,
-            bottomRight: isLast ? const Radius.circular(8) : Radius.zero,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Location pin icon
-            const SizedBox(width: 8),
-            // Store details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Store name - bold black
-                  Row(
-                    children: [
-                      SvgPicture.asset(
-                        'assets/images/location.svg',
-                        width: 17,
-                        height: 17,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        storeName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                          fontFamily: 'Roboto Flex',
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Address - smaller black (not gray)
-                  Row(
-                    children: [
-                      SvgPicture.asset('', width: 17, height: 17),
-                      const SizedBox(width: 7),
-                      Text(
-                        address,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.unselected_tab_color,
-                          fontFamily: 'Roboto Flex',
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-                  // Time and phone hours in a column
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Hours with clock icon
-                      Row(
-                        children: [
-                          const SizedBox(width: 4),
-                          SvgPicture.asset(
-                            'assets/images/time_small.svg',
-                            width: 12,
-                            height: 12,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            hours,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.unselected_tab_color,
-                              fontFamily: 'Roboto Flex',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 10),
-                      // Phone hours with phone icon,
-                      Row(
-                        children: [
-                          const SizedBox(width: 4),
-                          SvgPicture.asset(
-                            'assets/images/phone.svg',
-                            width: 12,
-                            height: 12,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            hours,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.unselected_tab_color,
-                              fontFamily: 'Roboto Flex',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // Stock with green checkmark icon
-                  Row(
-                    children: [
-                      const SizedBox(width: 4),
-                      SvgPicture.asset(
-                        'assets/images/right.svg',
-                        width: 12,
-                        height: 12,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        stock,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.darkGreen,
-                          fontWeight: FontWeight.w400,
-                          fontFamily: 'Roboto Flex',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

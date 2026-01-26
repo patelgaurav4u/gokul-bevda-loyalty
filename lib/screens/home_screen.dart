@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/theme.dart';
 import 'tabs/home_tab.dart';
-import 'tabs/rewards_tab.dart';
+
 import 'tabs/special_offers_tab.dart';
 import 'tabs/purchase_history_tab.dart';
 import 'tabs/barcode_tab.dart';
@@ -25,12 +25,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> get _tabs => [
-        HomeTabContent(onNavigateToTab: _navigateToTab),
-        const RewardsTabContent(),
-        const SpecialOffersTabContent(),
-        const PurchaseHistoryTabContent(),
-        const BarcodeTabContent(),
-      ];
+    HomeTabContent(onNavigateToTab: _navigateToTab),
+
+    const SpecialOffersTabContent(),
+    const PurchaseHistoryTabContent(),
+    const BarcodeTabContent(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +52,9 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavButton('assets/images/home.svg', 0),
-              _buildNavButton('assets/images/rewards.svg', 1),
-              _buildNavButton('assets/images/special_offers.svg', 2),
-              _buildNavButton('assets/images/purchase_history.svg', 3),
-              _buildNavButton('assets/images/barcode.svg', 4),
+              _buildNavButton('assets/images/special_offers.svg', 1),
+              _buildNavButton('assets/images/purchase_history.svg', 2),
+              _buildNavButton('assets/images/barcode.svg', 3),
             ],
           ),
         ),

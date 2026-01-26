@@ -578,6 +578,10 @@ class AuthProvider with ChangeNotifier {
             responseData['Result'] == true &&
             responseData['Data'] != null) {
           dashboardData = DashboardData.fromJson(responseData['Data']);
+
+          // Persist points to SharedPreferences as requested
+          final sp = await SharedPreferences.getInstance();
+          await sp.setInt('user_points', dashboardData!.customerPoints);
         }
       }
     } catch (e) {

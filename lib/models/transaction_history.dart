@@ -8,6 +8,7 @@ class TransactionHistoryItem {
   final double previousPoints;
   final double collectedPoint;
   final double totalPoint;
+  final String storeName;
 
   TransactionHistoryItem({
     required this.txnId,
@@ -19,6 +20,7 @@ class TransactionHistoryItem {
     required this.previousPoints,
     required this.collectedPoint,
     required this.totalPoint,
+    required this.storeName,
   });
 
   factory TransactionHistoryItem.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class TransactionHistoryItem {
       previousPoints: (json['previouspoints'] as num?)?.toDouble() ?? 0.0,
       collectedPoint: (json['collectedpoint'] as num?)?.toDouble() ?? 0.0,
       totalPoint: (json['totalpoint'] as num?)?.toDouble() ?? 0.0,
+      storeName: json['storename']?.toString() ?? '',
     );
   }
 }

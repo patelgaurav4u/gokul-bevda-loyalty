@@ -21,6 +21,12 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Filter State
+  String _filterType = 'All';
+  String _filterCategory = 'All';
+  String _filterStartDate = '';
+  String _filterEndDate = '';
+
   @override
   void initState() {
     super.initState();
@@ -171,13 +177,6 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                     decoration: const BoxDecoration(color: Colors.transparent),
                     child: Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
-                          onPressed: () {},
-                        ),
                         const Expanded(
                           child: Text(
                             'Purchase History',
@@ -315,7 +314,14 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
   }
 
   List<Widget> _buildAllSliverList(AuthProvider auth) {
-    final transactions = auth.transactionHistory;
+    final transactions = _applyFilters(auth.transactionHistory);
+    final totalEarned = transactions
+        .where((t) => t.collectedPoint > 0)
+        .fold(0.0, (sum, t) => sum + t.collectedPoint);
+    final totalRedeemed = transactions
+        .where((t) => t.collectedPoint < 0)
+        .fold(0.0, (sum, t) => sum + t.collectedPoint.abs());
+
     return [
       const SliverToBoxAdapter(
         child: Padding(
@@ -333,6 +339,8 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
           ),
         ),
       ),
+      // Only show summary boxes if no filter is active or handle logic accordingly
+      // For now, let's keep showing totals
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 50),
@@ -340,7 +348,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
             children: [
               Expanded(
                 child: _buildSummaryBox(
-                  '+${auth.totalPointsEarned.toInt()}',
+                  '+${totalEarned.toInt()}',
                   'Points Earned',
                   AppTheme.lightPink,
                 ),
@@ -348,7 +356,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
               const SizedBox(width: 40),
               Expanded(
                 child: _buildSummaryBox(
-                  '-${auth.totalPointsRedeemed.toInt()}',
+                  '-${totalRedeemed.toInt()}',
                   'Points Redeemed',
                   AppTheme.lightPink,
                 ),
@@ -358,20 +366,33 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 16)),
-      SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildTransactionItem(transactions[index]),
-          childCount: transactions.length,
+      if (transactions.isEmpty)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: Text('No transactions match your filter')),
+          ),
+        )
+      else
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _buildTransactionItem(transactions[index]),
+            childCount: transactions.length,
+          ),
         ),
-      ),
       const SliverToBoxAdapter(child: SizedBox(height: 16)),
     ];
   }
 
   List<Widget> _buildEarnedSliverList(AuthProvider auth) {
-    final transactions = auth.transactionHistory
-        .where((t) => t.collectedPoint > 0)
-        .toList();
+    final transactions = _applyFilters(
+      auth.transactionHistory.where((t) => t.collectedPoint > 0).toList(),
+    );
+    final totalEarned = transactions.fold(
+      0.0,
+      (sum, t) => sum + t.collectedPoint,
+    );
+
     return [
       const SliverToBoxAdapter(
         child: Padding(
@@ -396,7 +417,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
             children: [
               Expanded(
                 child: _buildSummaryBox(
-                  '+${auth.totalPointsEarned.toInt()}',
+                  '+${totalEarned.toInt()}',
                   'Points Earned',
                   AppTheme.lightPink,
                 ),
@@ -418,7 +439,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: Text('No earned transactions')),
+            child: Center(child: Text('No earned transactions found')),
           ),
         )
       else
@@ -433,9 +454,14 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
   }
 
   List<Widget> _buildRedeemedSliverList(AuthProvider auth) {
-    final transactions = auth.transactionHistory
-        .where((t) => t.collectedPoint < 0)
-        .toList();
+    final transactions = _applyFilters(
+      auth.transactionHistory.where((t) => t.collectedPoint < 0).toList(),
+    );
+    final totalRedeemed = transactions.fold(
+      0.0,
+      (sum, t) => sum + t.collectedPoint.abs(),
+    );
+
     return [
       const SliverToBoxAdapter(
         child: Padding(
@@ -460,7 +486,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
             children: [
               Expanded(
                 child: _buildSummaryBox(
-                  '-${auth.totalPointsRedeemed.toInt()}',
+                  '-${totalRedeemed.toInt()}',
                   'Points Redeemed',
                   AppTheme.lightPink,
                 ),
@@ -482,7 +508,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: Text('No redeemed transactions')),
+            child: Center(child: Text('No redeemed transactions found')),
           ),
         )
       else
@@ -547,8 +573,8 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         ? 'assets/images/bag.svg'
         : 'assets/images/prize.svg';
     final title = isEarned
-        ? "Purchase at NO DATA FOUND"
-        : "Reward Redeemed: NO DATA FOUND";
+        ? "Purchase at ${transaction.storeName}"
+        : "Reward Redeemed: ${transaction.storeName}";
 
     // Formatting date: July 28, 2023 • 6:42 PM
     String formattedDateTime = '';
@@ -641,22 +667,35 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
   }
 
   void _showFilterPopup(BuildContext context) {
-    print('_showFilterPopup called');
-    final selectedTabIndex = _tabController.index;
-
-    // Filter state
-    String selectedTransactionType = 'All';
-    String selectedCategory = 'All';
-    String startDate = '';
-    String endDate = '';
+    // Filter state initialized from parent state
+    String selectedTransactionType = _filterType;
+    String selectedCategory = _filterCategory;
+    String startDate = _filterStartDate;
+    String endDate = _filterEndDate;
 
     showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black54,
       builder: (BuildContext dialogContext) {
+        // Helper to parse date string "d/M/yyyy"
+        DateTime? parseDate(String dateStr) {
+          if (dateStr.isEmpty) return null;
+          try {
+            final parts = dateStr.split('/');
+            if (parts.length != 3) return null;
+            return DateTime(
+              int.parse(parts[2]),
+              int.parse(parts[1]),
+              int.parse(parts[0]),
+            );
+          } catch (e) {
+            return null;
+          }
+        }
+
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -715,7 +754,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                             ['All', 'Earned', 'Redeemed'],
                             selectedTransactionType,
                             (value) {
-                              setState(() {
+                              setDialogState(() {
                                 selectedTransactionType = value;
                               });
                             },
@@ -727,7 +766,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                             ['All', 'Purchase', 'Reward'],
                             selectedCategory,
                             (value) {
-                              setState(() {
+                              setDialogState(() {
                                 selectedCategory = value;
                               });
                             },
@@ -751,14 +790,21 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                                   'mm/dd/yyyy',
                                   startDate,
                                   () async {
+                                    final endDt = parseDate(endDate);
+                                    final lastDate =
+                                        endDt != null &&
+                                            endDt.isBefore(DateTime.now())
+                                        ? endDt
+                                        : DateTime.now();
+
                                     final date = await showDatePicker(
                                       context: context,
-                                      initialDate: DateTime.now(),
+                                      initialDate: lastDate,
                                       firstDate: DateTime(2020),
-                                      lastDate: DateTime.now(),
+                                      lastDate: lastDate,
                                     );
                                     if (date != null) {
-                                      setState(() {
+                                      setDialogState(() {
                                         startDate =
                                             '${date.day}/${date.month}/${date.year}';
                                       });
@@ -772,14 +818,17 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                                   'mm/dd/yyyy',
                                   endDate,
                                   () async {
+                                    final startDt = parseDate(startDate);
+                                    final firstDate = startDt ?? DateTime(2020);
+
                                     final date = await showDatePicker(
                                       context: context,
                                       initialDate: DateTime.now(),
-                                      firstDate: DateTime(2020),
+                                      firstDate: firstDate,
                                       lastDate: DateTime.now(),
                                     );
                                     if (date != null) {
-                                      setState(() {
+                                      setDialogState(() {
                                         endDate =
                                             '${date.day}/${date.month}/${date.year}';
                                       });
@@ -798,7 +847,7 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                                 width: Responsive.widthPercent(context, 25),
                                 child: OutlinedButton(
                                   onPressed: () {
-                                    setState(() {
+                                    setDialogState(() {
                                       selectedTransactionType = 'All';
                                       selectedCategory = 'All';
                                       startDate = '';
@@ -834,8 +883,22 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
                                 child: ElevatedButton(
                                   onPressed: () {
                                     // Apply filters here
+                                    setState(() {
+                                      _filterType = selectedTransactionType;
+                                      _filterCategory = selectedCategory;
+                                      _filterStartDate = startDate;
+                                      _filterEndDate = endDate;
+
+                                      // Sync tab with transaction type
+                                      if (_filterType == 'All') {
+                                        _tabController.animateTo(0);
+                                      } else if (_filterType == 'Earned') {
+                                        _tabController.animateTo(1);
+                                      } else if (_filterType == 'Redeemed') {
+                                        _tabController.animateTo(2);
+                                      }
+                                    });
                                     Navigator.of(dialogContext).pop();
-                                    // TODO: Apply filters to the transaction list
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.primary,
@@ -964,6 +1027,56 @@ class _PurchaseHistoryTabContentState extends State<PurchaseHistoryTabContent>
         ),
       ),
     );
+  }
+
+  List<TransactionHistoryItem> _applyFilters(
+    List<TransactionHistoryItem> source,
+  ) {
+    return source.where((item) {
+      // Filter by Transaction Type
+      if (_filterType == 'Earned' && item.collectedPoint <= 0) return false;
+      if (_filterType == 'Redeemed' && item.collectedPoint >= 0) return false;
+
+      // Filter by Category (Assuming Purchase = Earned, Reward = Redeemed for now as per logic)
+      if (_filterCategory == 'Purchase' && item.collectedPoint <= 0) {
+        return false;
+      }
+      if (_filterCategory == 'Reward' && item.collectedPoint >= 0) return false;
+
+      // Filter by Date
+      if (_filterStartDate.isNotEmpty || _filterEndDate.isNotEmpty) {
+        try {
+          final itemDate = DateTime.parse(item.txnDate);
+
+          if (_filterStartDate.isNotEmpty) {
+            final startParts = _filterStartDate.split('/');
+            final start = DateTime(
+              int.parse(startParts[2]),
+              int.parse(startParts[1]),
+              int.parse(startParts[0]),
+            );
+            if (itemDate.isBefore(start)) return false;
+          }
+
+          if (_filterEndDate.isNotEmpty) {
+            final endParts = _filterEndDate.split('/');
+            final end = DateTime(
+              int.parse(endParts[2]),
+              int.parse(endParts[1]),
+              int.parse(endParts[0]),
+              23,
+              59,
+              59,
+            );
+            if (itemDate.isAfter(end)) return false;
+          }
+        } catch (e) {
+          debugPrint('Error parsing date for filter: $e');
+        }
+      }
+
+      return true;
+    }).toList();
   }
 }
 

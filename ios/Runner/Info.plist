@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Bevdaa needs access to the photo library to save your QR code.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Bevdaa needs access to the photo library to save your QR code.</string>
 </dict>
 </plist>

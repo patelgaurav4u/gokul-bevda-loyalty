@@ -1,4 +1,3 @@
-// lib/models/recent_activity.dart
 class RecentActivity {
   final String id;
   final String type; // e.g., 'Points Earned'
@@ -7,6 +6,7 @@ class RecentActivity {
   final String time;
   final int points;
   final bool isPositive; // true for earned, false for redeemed
+  final String storeName;
 
   RecentActivity({
     required this.id,
@@ -16,6 +16,7 @@ class RecentActivity {
     required this.time,
     required this.points,
     this.isPositive = true,
+    required this.storeName,
   });
 
   factory RecentActivity.fromJson(Map<String, dynamic> json) {
@@ -27,6 +28,7 @@ class RecentActivity {
       time: json['time'] as String,
       points: json['points'] as int,
       isPositive: json['is_positive'] as bool? ?? true,
+      storeName: json['storename'] as String? ?? '',
     );
   }
 
@@ -39,7 +41,7 @@ class RecentActivity {
       'time': time,
       'points': points,
       'is_positive': isPositive,
+      'storename': storeName,
     };
   }
 }
-

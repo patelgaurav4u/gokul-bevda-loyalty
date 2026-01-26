@@ -1,12 +1,14 @@
 // lib/services/api_service.dart
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/points_data.dart';
 import '../models/special_offer.dart';
 import '../models/recent_activity.dart';
+import '../models/recent_activity.dart';
 import '../models/purchase_history.dart';
-import '../models/store.dart';
+import '../models/offer_detail.dart';
 
 class ApiService {
   final Dio dio;
@@ -73,105 +75,87 @@ class ApiService {
   /// Mock API: Get user points data
   /// Simulates API call with delay
   Future<PointsData> getUserPoints() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Return mock data
-    return PointsData(points: 1200, completedMissions: 4, totalMissions: 8);
+    // Return empty data
+    return PointsData(points: 0, completedMissions: 4, totalMissions: 8);
   }
 
-  /// Mock API: Get special offers
-  /// Simulates API call with delay
+  /// Get special offers from API
   Future<List<SpecialOffer>> getSpecialOffers({String? type}) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final headers = <String, dynamic>{
+        'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+        'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+      };
 
-    // Return mock data matching the Figma design
-    final mockStores = [
-      Store(
-        id: '1',
-        name: 'Downtown Cellars',
-        address: '123 Main Street, India, NY 10001',
-        hours: '9AM-9PM',
-        stock: 'In stock: 15 bottles',
-      ),
-      Store(
-        id: '2',
-        name: 'Downtown Cellars',
-        address: '123 Main Street, India, NY 10001',
-        hours: '9AM-9PM',
-        stock: 'In stock: 15 bottles',
-      ),
-      Store(
-        id: '3',
-        name: 'Downtown Cellars',
-        address: '123 Main Street, India, NY 10001',
-        hours: '9AM-9PM',
-        stock: 'In stock: 15 bottles',
-      ),
-    ];
+      final response = await dio.get(
+        'GetSalesPromotionByProduct',
+        options: Options(headers: headers),
+      );
 
-    final allOffers = [
-      SpecialOffer(
-        id: '1',
-        title: 'Buy 1 Get 1 Free',
-        description:
-            'Select premium spirits and wines. Limited to in-store purchases only.',
-        category: 'Spirits & Wines',
-        availability: 'All Stores',
-        expires: 'Oct 11, 2025',
-        tag: 'Limited Time',
-        type: 'buy1get1',
-        iconType: 'bottle',
-        stores: mockStores,
-      ),
-      SpecialOffer(
-        id: '2',
-        title: '20% Off Premium Wines',
-        description:
-            'Get 20% off on all premium wine selections from our exclusive collection.',
-        category: 'Wines',
-        availability: 'Selected Stores',
-        expires: 'Oct 11, 2025',
-        tag: 'Popular',
-        type: 'discounts',
-        iconType: 'percentage',
-        stores: mockStores,
-      ),
-      SpecialOffer(
-        id: '3',
-        title: 'Buy 1 Get 1 Free',
-        description:
-            'Select premium spirits and wines. Limited to in-store purchases only.',
-        category: 'Spirits & Wines',
-        availability: 'All Stores',
-        expires: 'Oct 11, 2025',
-        tag: 'Limited Time',
-        type: 'buy1get1',
-        iconType: 'bottle',
-        stores: mockStores,
-      ),
-      SpecialOffer(
-        id: '4',
-        title: '20% Off Premium Wines',
-        description:
-            'Get 20% off on all premium wine selections from our exclusive collection.',
-        category: 'Wines',
-        availability: 'Selected Stores',
-        expires: 'Oct 11, 2025',
-        tag: 'Popular',
-        type: 'discounts',
-        iconType: 'percentage',
-        stores: mockStores,
-      ),
-    ];
+      print('GetSalesPromotionByProduct Response: ${response.statusCode}');
 
-    // Filter by type if provided
-    if (type != null && type != 'all') {
-      return allOffers.where((offer) => offer.type == type).toList();
+      if (response.data['Result'] == true && response.data['Data'] != null) {
+        final promotionsJson =
+            response.data['Data']['Promotions'] as List<dynamic>? ?? [];
+        final allOffers = promotionsJson
+            .map((json) => SpecialOffer.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        // Filter by type if provided
+        if (type != null && type != 'all') {
+          return allOffers.where((offer) => offer.type == type).toList();
+        }
+
+        return allOffers;
+      } else {
+        // Return empty list if Result is false or Data is null
+        return [];
+      }
+    } catch (e) {
+      // Re-throw to be handled by the UI
+      rethrow;
     }
+  }
 
-    return allOffers;
+  /// Get special offer details by Sale ID
+  Future<OfferDetail?> getOfferDetails(String saleId) async {
+    try {
+      final headers = <String, dynamic>{
+        'UserId': 'i/jvNw56275GboRZu0XoNQ==', // Static
+        'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
+        'Sale_Id': saleId,
+      };
+      //print('GetSalesPromotionDescription Request: ${response}');
+      // Construct query parameters
+      // Assuming GET request with query param, or POST with body?
+      // Based on method name 'GetSalesPromotionDescription', likely a GET or POST.
+      // Standard practice for this app seems to be GET or POST with headers.
+      // User didn't specify method, assuming GET with query param or path.
+      // Actually, looking at previous calls, it might take params in body if POST, or query if GET.
+      // Let's assume query param 'id' or similar.
+      // WAIT: The prompt says "API Name: GetSalesPromotionDescription".
+      // It likely expects a query parameter for SaleID.
+      // Let's try sending it as a query parameter `?saleid=...`
+
+      final response = await dio.get(
+        'GetSalesPromotionDescription',
+        options: Options(headers: headers),
+      );
+
+      print('GetSalesPromotionDescription Response: ${response}');
+      // print('Data: ${response.data}');
+
+      if (response.data['Result'] == true && response.data['Data'] != null) {
+        return OfferDetail.fromJson(
+          response.data['Data'] as Map<String, dynamic>,
+        );
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching offer details: $e');
+      rethrow;
+    }
   }
 
   /// Legacy method for home tab compatibility
@@ -185,209 +169,47 @@ class ApiService {
   /// Mock API: Get recent activity
   /// Simulates API call with delay
   Future<List<RecentActivity>> getRecentActivity() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Return mock data
-    return [
-      RecentActivity(
-        id: '1',
-        type: 'Points Earned',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Jul 28, 2023',
-        time: '6:42 PM',
-        points: 150,
-        isPositive: true,
-      ),
-      RecentActivity(
-        id: '2',
-        type: 'Points Earned',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Jul 28, 2023',
-        time: '6:42 PM',
-        points: 150,
-        isPositive: true,
-      ),
-      RecentActivity(
-        id: '3',
-        type: 'Points Earned',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Jul 28, 2023',
-        time: '6:42 PM',
-        points: 150,
-        isPositive: true,
-      ),
-    ];
+    // Return empty list
+    return [];
   }
 
-  /// Mock API: Get user QR code data
-  /// Simulates API call with delay
+  /// Get user QR code data from local storage
   Future<Map<String, dynamic>> getUserQrData() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Return mock data matching the Figma design
-    return {
-      'name': 'John Smith',
-      'memberNumber': 'SP-984752',
-      'points': 1250,
-      'memberType': 'VIP Member',
-    };
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final userStr = sp.getString('user_data');
+      if (userStr != null && userStr.isNotEmpty) {
+        final Map<String, dynamic> userMap = jsonDecode(userStr);
+        return {
+          'firstname': userMap['firstname'] ?? '',
+          'lastname': userMap['lastname'] ?? '',
+          'customer_id': userMap['customer_id']?.toString() ?? '',
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+    return {'firstname': '', 'lastname': '', 'customer_id': ''};
   }
 
   /// Mock API: Get purchase history summary
   /// Simulates API call with delay
   Future<PurchaseHistorySummary> getPurchaseHistory() async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Return mock data matching the Figma design
-    final transactions = [
-      PurchaseHistory(
-        id: '1',
-        type: 'reward',
-        description: 'Reward Redeemed: Premium Whiskey',
-        date: 'Aug 15, 2023',
-        time: '2:30 PM',
-        points: 500,
-        isPositive: false,
-      ),
-      PurchaseHistory(
-        id: '2',
-        type: 'purchase',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Aug 12, 2023',
-        time: '6:42 PM',
-        points: 90,
-        isPositive: true,
-      ),
-      PurchaseHistory(
-        id: '3',
-        type: 'purchase',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Aug 12, 2023',
-        time: '6:42 PM',
-        points: 90,
-        isPositive: true,
-      ),
-      PurchaseHistory(
-        id: '4',
-        type: 'purchase',
-        description: 'Purchase at Wine & More',
-        date: 'Aug 8, 2023',
-        time: '3:15 PM',
-        points: 90,
-        isPositive: true,
-      ),
-      PurchaseHistory(
-        id: '5',
-        type: 'reward',
-        description: 'Reward Redeemed: Premium Whiskey',
-        date: 'Aug 15, 2023',
-        time: '2:30 PM',
-        points: 750,
-        isPositive: false,
-      ),
-      PurchaseHistory(
-        id: '6',
-        type: 'purchase',
-        description: 'Purchase at Wine & More',
-        date: 'Aug 8, 2023',
-        time: '3:15 PM',
-        points: 30,
-        isPositive: true,
-      ),
-      PurchaseHistory(
-        id: '7',
-        type: 'reward',
-        description: 'Reward Redeemed: Premium Whiskey',
-        date: 'Aug 15, 2023',
-        time: '2:30 PM',
-        points: 500,
-        isPositive: false,
-      ),
-      PurchaseHistory(
-        id: '8',
-        type: 'purchase',
-        description: 'Purchase at Downtown Spirits',
-        date: 'Aug 12, 2023',
-        time: '6:42 PM',
-        points: 50,
-        isPositive: true,
-      ),
-      PurchaseHistory(
-        id: '9',
-        type: 'purchase',
-        description: 'Purchase at Wine & More',
-        date: 'Aug 8, 2023',
-        time: '3:15 PM',
-        points: 46,
-        isPositive: true,
-      ),
-    ];
-
-    final earnedTransactions = transactions.where((t) => t.isPositive).toList();
-    final redeemedTransactions = transactions
-        .where((t) => !t.isPositive)
-        .toList();
-
+    // Return empty summary
     return PurchaseHistorySummary(
-      pointsBalance: 1250,
-      pointsEarned: earnedTransactions.fold(0, (sum, t) => sum + t.points),
-      pointsRedeemed: redeemedTransactions.fold(0, (sum, t) => sum + t.points),
-      earnedTransactionsCount: earnedTransactions.length,
-      redeemedTransactionsCount: redeemedTransactions.length,
-      allTransactions: transactions,
+      pointsBalance: 0,
+      pointsEarned: 0,
+      pointsRedeemed: 0,
+      earnedTransactionsCount: 0,
+      redeemedTransactionsCount: 0,
+      allTransactions: [],
     );
   }
 
-  /// Generate redemption code
-  /// Simulates API call with delay
   Future<Map<String, dynamic>> generateRedemptionCode({
     required String amount,
     required String store,
   }) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Simulate API call
-    try {
-      // In a real app, this would be:
-      // final response = await dio.post(
-      //   ApiEndpoints.generateRedemptionCode,
-      //   data: {
-      //     'amount': amount,
-      //     'store': store,
-      //   },
-      // );
-      // return response.data;
-
-      // Mock success response
-      return {
-        'success': true,
-        'code': 'RED${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-        'message': 'Redemption code generated successfully',
-        'amount': amount,
-        'store': store,
-        'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-      };
-    } catch (e) {
-      // Simulate error (uncomment to test error handling)
-      // throw DioException(
-      //   requestOptions: RequestOptions(path: ApiEndpoints.generateRedemptionCode),
-      //   error: 'Failed to generate redemption code',
-      //   type: DioExceptionType.connectionError,
-      // );
-
-      // For now, return success (you can uncomment above to test error)
-      return {
-        'success': true,
-        'code': 'RED${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-        'message': 'Redemption code generated successfully',
-        'amount': amount,
-        'store': store,
-        'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-      };
-    }
+    return {'success': false, 'message': 'API implementation pending'};
   }
 }

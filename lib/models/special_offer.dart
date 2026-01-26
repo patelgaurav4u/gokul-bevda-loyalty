@@ -6,6 +6,7 @@ class SpecialOffer {
   final String title;
   final String description;
   final String category;
+  final String categoryTitle;
   final String availability;
   final String expires;
   final String tag; // 'Limited Time', 'Popular', etc.
@@ -17,6 +18,7 @@ class SpecialOffer {
     required this.id,
     required this.title,
     required this.description,
+    required this.categoryTitle,
     required this.category,
     required this.availability,
     required this.expires,
@@ -27,21 +29,82 @@ class SpecialOffer {
   });
 
   factory SpecialOffer.fromJson(Map<String, dynamic> json) {
-    final storesJson = json['stores'] as List<dynamic>? ?? [];
-    final stores = storesJson
-        .map((storeJson) => Store.fromJson(storeJson as Map<String, dynamic>))
+    // Helper to format date
+    String formatExpires(String? dateStr) {
+      if (dateStr == null || dateStr.isEmpty) return '';
+      try {
+        final date = DateTime.parse(dateStr);
+        // format like 'Oct 11, 2025'
+        final months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+        return '${months[date.month - 1]} ${date.day}, ${date.year}';
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    // Helper to parse type
+    String parseType(String? discountType) {
+      if (discountType == 'Exact') return 'discounts';
+      if (discountType == 'BOGO') return 'buy1get1';
+      return 'all';
+    }
+
+    // Helper to parse icon type
+    String parseIconType(String? discountType) {
+      if (discountType == 'Exact') return 'percentage';
+      if (discountType == 'BOGO') return 'bottle';
+      return 'percentage';
+    }
+
+    final rawStores = json['stores'] as String? ?? '';
+    final storeList = rawStores
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    // Create Store objects from simple names
+    final stores = storeList
+        .map(
+          (name) => Store(
+            id: '', // No ID from this API
+            name: name,
+            address: '', // No address from this API
+            hours: 'Check in store', // Default
+            phone: 'Check in store', // Default
+            stock: 'Check availability', // Default
+          ),
+        )
         .toList();
 
     return SpecialOffer(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      category: json['category'] as String,
-      availability: json['availability'] as String,
-      expires: json['expires'] as String,
-      tag: json['tag'] as String,
-      type: json['type'] as String,
-      iconType: json['icon_type'] as String,
+      id: (json['sale_id'] ?? '').toString(),
+      title: json['promodescription'] as String? ?? '',
+      description: (json['note'] as String? ?? '').isEmpty
+          ? 'No description available'
+          : json['note'] as String,
+      categoryTitle: json['targettypedesc'] as String? ?? '',
+      category: json['promotargetname'] as String? ?? 'No data available',
+      availability: rawStores,
+      expires: formatExpires(json['enddate'] as String?),
+      tag: (json['enddate'] != null && json['enddate'].toString().isNotEmpty)
+          ? 'Limited Time'
+          : '',
+      type: parseType(json['discounttype'] as String?),
+      iconType: parseIconType(json['discounttype'] as String?),
       stores: stores,
     );
   }
@@ -51,12 +114,13 @@ class SpecialOffer {
       'id': id,
       'title': title,
       'description': description,
+      'categoryTitle': categoryTitle,
       'category': category,
       'availability': availability,
       'expires': expires,
       'tag': tag,
       'type': type,
-      'icon_type': iconType,
+      'iconType': iconType,
       'stores': stores.map((store) => store.toJson()).toList(),
     };
   }

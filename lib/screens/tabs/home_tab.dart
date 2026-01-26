@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../config/api_config.dart';
 import '../../utils/theme.dart';
-import '../../models/points_data.dart';
+import '../../models/dashboard_data.dart';
 import '../../models/special_offer.dart';
 import '../../models/recent_activity.dart';
-import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/offer_dialog.dart';
 
 class HomeTabContent extends StatefulWidget {
   final Function(int)? onNavigateToTab;
@@ -20,37 +19,11 @@ class HomeTabContent extends StatefulWidget {
 }
 
 class _HomeTabContentState extends State<HomeTabContent> {
-  final ApiService _apiService = ApiService.create(baseUrl: ApiConfig.baseUrl);
-
-  PointsData? _pointsData;
-  List<RecentActivity> _activities = [];
-
   @override
   void initState() {
     super.initState();
-    _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AuthProvider>(context, listen: false).fetchDashboard(context);
-    });
-  }
-
-  Future<void> _loadData() async {
-    // Load points
-    _apiService.getUserPoints().then((data) {
-      if (mounted) {
-        setState(() {
-          _pointsData = data;
-        });
-      }
-    });
-
-    // Load activity
-    _apiService.getRecentActivity().then((activities) {
-      if (mounted) {
-        setState(() {
-          _activities = activities;
-        });
-      }
     });
   }
 
@@ -60,9 +33,8 @@ class _HomeTabContentState extends State<HomeTabContent> {
     final dashboardData = auth.dashboardData;
     final isLoadingDashboard = auth.loadingDashboard;
 
-    // Use dashboard points if available, otherwise fallback to _pointsData
-    final displayPoints =
-        dashboardData?.customerPoints ?? _pointsData?.points ?? 0;
+    // Use dashboard points if available, otherwise 0
+    final displayPoints = dashboardData?.customerPoints ?? 0;
 
     return Container(
       color: AppTheme.bg,
@@ -70,27 +42,39 @@ class _HomeTabContentState extends State<HomeTabContent> {
         child: RefreshIndicator(
           onRefresh: () async {
             await auth.fetchDashboard(context);
-            await _loadData();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Your Points Section
-                _buildPointsSection(displayPoints, isLoadingDashboard),
+                // Your Points Section - Always visible
+                _buildPointsSection(displayPoints, dashboardData),
 
                 const SizedBox(height: 20),
 
-                // Special Offers Section
-                _buildSpecialOffersSection(auth),
+                // Main Loading Indicator or Content
+                if (isLoadingDashboard)
+                  Container(
+                    height: 300,
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppTheme.primary,
+                      ),
+                    ),
+                  )
+                else ...[
+                  // Special Offers Section
+                  _buildSpecialOffersSection(auth),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Recent Activity Section
-                _buildRecentActivitySection(auth),
+                  // Recent Activity Section
+                  _buildRecentActivitySection(auth),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                ],
               ],
             ),
           ),
@@ -99,7 +83,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
     );
   }
 
-  Widget _buildPointsSection(int points, bool loading) {
+  Widget _buildPointsSection(int points, DashboardData? data) {
     return Container(
       margin: const EdgeInsets.all(0),
       decoration: BoxDecoration(
@@ -179,82 +163,59 @@ class _HomeTabContentState extends State<HomeTabContent> {
                                     fontFamily: 'Roboto Flex',
                                   ),
                                 ),
-                                if (!loading)
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                        colors: [
-                                          Color(0x26FFFFFF),
-                                          Color(0x26FFFFFF),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Color(0x26FFFFFF),
+                                        Color(0x26FFFFFF),
+                                      ],
                                     ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {},
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 5,
-                                          ),
-                                          child: const Text(
-                                            'Redeem points',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                              fontFamily: 'Roboto Flex',
-                                            ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {},
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        child: const Text(
+                                          'Redeem points',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
+                                            fontFamily: 'Roboto Flex',
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                if (loading)
-                                  const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          if (!loading)
-                            Text(
-                              '$points Points >',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Roboto Flex',
-                              ),
+                          Text(
+                            '$points Points >',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Roboto Flex',
                             ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                if (loading)
-                  const SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                  )
-                else if (_pointsData != null) ...[
+                if (data != null) ...[
                   const SizedBox(height: 40),
                   Center(
                     child: IntrinsicWidth(
@@ -265,7 +226,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Complete ${_pointsData!.totalMissions} missions to become Platinum member',
+                                'Complete ${data.totalMissions} missions to become Platinum member',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Color(0xFFFFF3D1),
@@ -283,7 +244,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'You\'ve completed ${_pointsData!.completedMissions} missions',
+                            'You\'ve completed ${data.completedMissions} missions',
                             textAlign: TextAlign.start,
                             style: const TextStyle(
                               color: Color(0xFFFFF3D1),
@@ -306,25 +267,9 @@ class _HomeTabContentState extends State<HomeTabContent> {
 
   Widget _buildSpecialOffersSection(AuthProvider auth) {
     final dashboardOffers = auth.dashboardData?.offers ?? [];
-    final isLoading = auth.loadingDashboard;
 
-    // Map DashboardOffer to SpecialOffer
-    final offers = dashboardOffers
-        .map(
-          (o) => SpecialOffer(
-            id: o.saleId.toString(),
-            title: o.saleName,
-            description: o.note ?? o.promoTargetName ?? '',
-            category: o.targetTypeDesc ?? 'Special Offer',
-            availability: 'All Stores',
-            expires: o.endDate?.split('T').first ?? 'N/A',
-            tag: 'Limited Time',
-            type: 'all',
-            iconType: 'bottle',
-            stores: [],
-          ),
-        )
-        .toList();
+    // Map DashboardOffer to SpecialOffer using the helper method
+    final offers = dashboardOffers.map((o) => o.toSpecialOffer()).toList();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -359,61 +304,36 @@ class _HomeTabContentState extends State<HomeTabContent> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  if (isLoading)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.primary,
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkRed,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: GestureDetector(
-                        onTap: () {
-                          if (widget.onNavigateToTab != null) {
-                            widget.onNavigateToTab!(2);
-                          }
-                        },
-                        child: const Text(
-                          'View All Offers',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Roboto Flex',
-                          ),
-                        ),
-                      ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkRed,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    if (widget.onNavigateToTab != null) {
+                      widget.onNavigateToTab!(1);
+                    }
+                  },
+                  child: const Text(
+                    'View All Offers',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Roboto Flex',
                     ),
-                ],
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          if (isLoading && offers.isEmpty)
-            const SizedBox(
-              height: 100,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                ),
-              ),
-            )
-          else if (offers.isEmpty)
+          if (offers.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -434,80 +354,91 @@ class _HomeTabContentState extends State<HomeTabContent> {
   }
 
   Widget _buildOfferCard(SpecialOffer offer) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.lightRed, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 43,
-            height: 43,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: SvgPicture.asset(
-                    'assets/images/red_round.svg',
-                    fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          barrierColor: Colors.black54,
+          builder: (BuildContext dialogContext) {
+            return OfferDialog(saleId: offer.id, note: offer.description);
+          },
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.lightRed, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 43,
+              height: 43,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: SvgPicture.asset(
+                      'assets/images/red_round.svg',
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
-                Center(
-                  child: offer.iconType == 'percentage'
-                      ? SvgPicture.asset(
-                          'assets/images/percentage.svg',
-                          width: 15,
-                          height: 15,
-                        )
-                      : SvgPicture.asset(
-                          'assets/images/celebration.svg',
-                          width: 20,
-                          height: 20,
-                        ),
-                ),
-              ],
+                  Center(
+                    child: offer.iconType == 'percentage'
+                        ? SvgPicture.asset(
+                            'assets/images/percentage.svg',
+                            width: 15,
+                            height: 15,
+                          )
+                        : SvgPicture.asset(
+                            'assets/images/celebration.svg',
+                            width: 20,
+                            height: 20,
+                          ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  offer.title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.darkRed,
-                    fontFamily: 'Roboto Flex',
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    offer.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.darkRed,
+                      fontFamily: 'Roboto Flex',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  offer.description.isNotEmpty
-                      ? offer.description
-                      : offer.category,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.unselected_tab_color,
-                    fontFamily: 'Roboto Flex',
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 4),
+                  Text(
+                    offer.description.isNotEmpty
+                        ? offer.description
+                        : offer.category,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.unselected_tab_color,
+                      fontFamily: 'Roboto Flex',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildRecentActivitySection(AuthProvider auth) {
     final dashboardTxns = auth.dashboardData?.transactions ?? [];
-    final isLoading = auth.loadingDashboard;
 
     // Map DashboardTransaction to RecentActivity
     final activities = dashboardTxns.map((t) {
@@ -526,17 +457,19 @@ class _HomeTabContentState extends State<HomeTabContent> {
       return RecentActivity(
         id: t.txnId,
         type: isEarned ? 'Points Earned' : 'Points Redeemed',
-        description: 'Purchase at NO DATA FOUND',
+        description: isEarned
+            ? 'Purchase at ${t.storeName}'
+            : 'Reward Redeemed at ${t.storeName}',
         date: formattedDate,
         time: '', // Time is now included in the formattedDate string
         points: pointsValue.abs().toInt(),
         isPositive: isEarned,
+        storeName: t.storeName,
       );
     }).toList();
 
-    // If dashboard activities empty but we have mock activities, use those for visual filler if desired,
-    // but better to show real data.
-    final displayActivities = activities.isNotEmpty ? activities : _activities;
+    // If dashboard activities empty, show nothing or empty state
+    final displayActivities = activities;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -571,61 +504,36 @@ class _HomeTabContentState extends State<HomeTabContent> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  if (isLoading)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.primary,
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkRed,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: GestureDetector(
-                        onTap: () {
-                          if (widget.onNavigateToTab != null) {
-                            widget.onNavigateToTab!(3);
-                          }
-                        },
-                        child: const Text(
-                          'View All Activity',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Roboto Flex',
-                          ),
-                        ),
-                      ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkRed,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    if (widget.onNavigateToTab != null) {
+                      widget.onNavigateToTab!(2);
+                    }
+                  },
+                  child: const Text(
+                    'View All Activity',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Roboto Flex',
                     ),
-                ],
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          if (isLoading && displayActivities.isEmpty)
-            const SizedBox(
-              height: 100,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
-                ),
-              ),
-            )
-          else if (displayActivities.isEmpty)
+          if (displayActivities.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -698,7 +606,7 @@ class _HomeTabContentState extends State<HomeTabContent> {
             ),
           ),
           Text(
-            '${activity.isPositive ? '+' : '-'}${activity.points} pts',
+            '${activity.points == 0 ? '' : (activity.isPositive ? '+' : '-')}${activity.points} pts',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w900,
