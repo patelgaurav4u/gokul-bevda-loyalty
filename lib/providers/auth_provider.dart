@@ -421,7 +421,7 @@ class AuthProvider with ChangeNotifier {
 
         bool outerResult = responseData['Result'] == true;
         bool innerResult = false;
-        String innerMsg = '';
+        String innerMsg = responseData['Msg']?.toString() ?? '';
 
         Map<String, dynamic>? innerData;
 
@@ -429,36 +429,63 @@ class AuthProvider with ChangeNotifier {
             responseData['Data'] is Map<String, dynamic>) {
           innerData = responseData['Data'];
           innerResult = innerData!['Result'] == true;
-          innerMsg = innerData['Msg']?.toString() ?? '';
+          innerMsg = innerData['Msg']?.toString() ?? innerMsg;
+        } else if (outerResult && responseData['Data'] is List) {
+          // If Data is directly a List and outer Result is true, treat innerResult as true
+          innerResult = true;
+        } else if (outerResult && responseData['Data'] == null) {
+          // Explicit null data case from previous requirements
+          innerResult = true;
         }
 
         if (outerResult && innerResult) {
           // Success
 
-          // "if user is verifying from login with otp then using this navigate to home screen"
-          if (otpPurpose == 'login') {
-            // Parse user data and login
-            if (innerData != null && innerData['Data'] is List) {
-              final list = innerData['Data'] as List;
-              if (list.isNotEmpty) {
-                final userData = list.first;
-                if (userData is Map<String, dynamic>) {
-                  currentUser = User.fromJson(userData);
-                  await _saveUser(currentUser!);
+          // Let's check if there is User Data in the response
+          bool userFound = false;
+          User? parsedUser;
 
-                  notifyListeners();
-                  return true;
-                }
+          // The response structure from verifyOtp might have the data at the root
+          // e.g. { Result: true, Status: 0, Msg: "...", Data: [{...}] }
+          // OR it might provide innerData if there is nested structure.
+
+          List<dynamic>? userList;
+          if (responseData['Data'] is List) {
+            userList = responseData['Data'] as List;
+          } else if (innerData != null && innerData['Data'] is List) {
+            userList = innerData['Data'] as List;
+          }
+
+          if (userList != null && userList.isNotEmpty) {
+            final userData = userList.first;
+            if (userData is Map<String, dynamic>) {
+              try {
+                parsedUser = User.fromJson(userData);
+                userFound = true;
+              } catch (e) {
+                print("Error parsing user from verifyOtp: $e");
               }
             }
-            // If structure is slightly different or user data missing but result is true:
-            // Maybe we need to fetch dashboard?
-            // Assuming logic similar to Login method:
-            return true;
+          }
+
+          if (userFound && parsedUser != null) {
+            currentUser = parsedUser;
+            await _saveUser(currentUser!);
+            notifyListeners();
+
+            if (otpPurpose == 'login') {
+              return true; // Will navigate to home
+            } else {
+              return true; // For signup flow, we successfully verified OTP. It will move to next step.
+            }
           } else {
-            // "if usr is verifying from signup/register then just verify that API calling is success...
-            // and then as per current signup flow enter password ui is visible"
-            return true;
+            // No customer found (e.g. Data: null)
+            String msgToShow = innerMsg.isNotEmpty
+                ? innerMsg
+                : (responseData['Msg']?.toString() ??
+                      'Verification Successful, No customer found!');
+            _showError(ctx, msgToShow);
+            return false;
           }
         } else {
           _showError(
@@ -605,7 +632,40 @@ class AuthProvider with ChangeNotifier {
                 return false;
               }
               if (innerResult == true) {
-                // Registration success
+                // Registration success: Parse User
+                if (innerData.containsKey('Data') &&
+                    innerData['Data'] is List) {
+                  final userList = innerData['Data'] as List;
+                  if (userList.isNotEmpty) {
+                    final userData = userList.first;
+                    if (userData is Map<String, dynamic>) {
+                      try {
+                        currentUser = User.fromJson(userData);
+
+                        await _saveUser(currentUser!);
+                        notifyListeners();
+
+                        if (currentUser!.customerId != null) {
+                          return true;
+                        } else {
+                          _showError(
+                            ctx,
+                            "Registration succeeded but Customer ID missing.",
+                          );
+                          return false;
+                        }
+                      } catch (e) {
+                        print("Error parsing user: $e");
+                        _showError(
+                          ctx,
+                          "Error parsing user data received from server.",
+                        );
+                        return false;
+                      }
+                    }
+                  }
+                }
+                // Fallback if no user data found but result was true
                 return true;
               }
             }

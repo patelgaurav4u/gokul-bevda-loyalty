@@ -120,6 +120,7 @@ class AuthService {
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
       'X-OTP-Token': token,
       'OTP': otp,
+      'Phone': identifier,
     };
 
     final data = <String, dynamic>{};
