@@ -220,19 +220,19 @@ class _LoginPasswordWidgetState extends State<LoginPasswordWidget> {
 
                 onPressed: () => _onLogin(auth),
               ),
-              const SizedBox(height: 15),
-              TextButton(
-                onPressed: auth.uiBlocked ? null : () {},
-                child: Text(
-                  'Forgot Password?',
-                  style: TextStyle(
-                    color: AppTheme.darkRed,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    fontFamily: 'Roboto Flex',
-                  ),
-                ),
-              ),
+              // const SizedBox(height: 15),
+              // TextButton(
+              //   onPressed: auth.uiBlocked ? null : () {},
+              //   child: Text(
+              //     'Forgot Password?',
+              //     style: TextStyle(
+              //       color: AppTheme.darkRed,
+              //       fontWeight: FontWeight.bold,
+              //       fontSize: 16,
+              //       fontFamily: 'Roboto Flex',
+              //     ),
+              //   ),
+              // ),
               const SizedBox(height: 30),
               const TermsPrivacyText(),
             ],

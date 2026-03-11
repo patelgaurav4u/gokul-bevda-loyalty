@@ -221,7 +221,7 @@ class AuthService {
       'Password': 'no4mXKgy2gnpvdDDjXG49A==', // Static
       'CustomerId': customerId,
     };
-    final resp = await api.dio.get(
+    final resp = await api.dio.post(
       ApiEndpoints.deleteAccount,
       options: Options(headers: headers),
     );

@@ -64,15 +64,6 @@ class _AuthScreenState extends State<AuthScreen>
               style: TextStyle(fontSize: 16),
             ),
             actions: [
-              TextButton(
-                onPressed: () {
-                  SystemNavigator.pop();
-                },
-                child: const Text(
-                  'Exit',
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
